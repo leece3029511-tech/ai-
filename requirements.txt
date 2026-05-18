@@ -1,4 +1,7 @@
 streamlit
 pandas
 plotly
+streamlit
 folium
+streamlit-folium
+
