@@ -5,16 +5,19 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="서울시 행정구별 인구수", layout="wide")
 
 # -----------------------------
-# 데이터 불러오기
+# CSV 읽기 (인코딩 오류 해결)
 # -----------------------------
-df = pd.read_csv("papulation.csv", encoding="utf-8")
+try:
+    df = pd.read_csv("papulation.csv", encoding="cp949")
+except:
+    df = pd.read_csv("papulation.csv", encoding="euc-kr")
 
 # -----------------------------
-# 한글 컬럼 정리
+# 컬럼 공백 제거
 # -----------------------------
 df.columns = [col.strip() for col in df.columns]
 
-# 행정구 컬럼 찾기
+# 행정구 컬럼
 district_col = df.columns[0]
 
 # 숫자형 변환
@@ -51,7 +54,6 @@ selected_district = st.selectbox(
     districts
 )
 
-# 선택 데이터
 selected_row = df[df[district_col] == selected_district].iloc[0]
 
 # 그래프 데이터
@@ -96,7 +98,7 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 # =====================================================
-# 10살 간격 선택 후 인구 많은 행정구 TOP10 그래프
+# 연령대별 TOP10
 # =====================================================
 
 st.divider()
@@ -108,13 +110,11 @@ selected_age = st.selectbox(
     age_columns
 )
 
-# TOP10 추출
 top10 = df[[district_col, selected_age]].sort_values(
     by=selected_age,
     ascending=False
 ).head(10)
 
-# 그래프
 fig2 = go.Figure()
 
 for _, row in top10.iterrows():
