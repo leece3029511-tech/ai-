@@ -2,101 +2,85 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 
-# ---------------------------
-# 페이지 설정
-# ---------------------------
-st.set_page_config(
-    page_title="서울시 행정구별 인구수",
-    layout="wide"
-)
+st.set_page_config(page_title="서울시 행정구별 인구수", layout="wide")
 
-# ---------------------------
+# -----------------------------
 # 데이터 불러오기
-# ---------------------------
-df = pd.read_csv("papulation.csv", encoding="cp949")
+# -----------------------------
+df = pd.read_csv("papulation.csv", encoding="utf-8")
 
-# ---------------------------
-# 컬럼 공백 제거
-# ---------------------------
-df.columns = df.columns.str.strip()
+# -----------------------------
+# 한글 컬럼 정리
+# -----------------------------
+df.columns = [col.strip() for col in df.columns]
 
-# ---------------------------
-# 행정구 컬럼
-# ---------------------------
+# 행정구 컬럼 찾기
 district_col = df.columns[0]
 
-# ---------------------------
-# 연령 컬럼 찾기
-# ---------------------------
+# 숫자형 변환
+for col in df.columns[1:]:
+    df[col] = (
+        df[col]
+        .astype(str)
+        .str.replace(",", "", regex=False)
+    )
+
+    df[col] = pd.to_numeric(df[col], errors="coerce")
+
+# -----------------------------
+# 연령대 컬럼 추출
+# -----------------------------
 age_columns = []
 
 for col in df.columns:
-    if "세" in col and "계" not in col:
+    if "~" in col and "계" not in col:
         age_columns.append(col)
 
-# ---------------------------
+# -----------------------------
 # 제목
-# ---------------------------
+# -----------------------------
 st.title("서울시 행정구별 인구수")
 
-# ---------------------------
+# -----------------------------
 # 행정구 선택
-# ---------------------------
-district_list = df[district_col].tolist()
+# -----------------------------
+districts = df[district_col].tolist()
 
 selected_district = st.selectbox(
     "행정구 선택",
-    district_list
+    districts
 )
 
-# ---------------------------
 # 선택 데이터
-# ---------------------------
 selected_row = df[df[district_col] == selected_district].iloc[0]
 
-# ---------------------------
-# 데이터 변환
-# ---------------------------
-population_values = []
+# 그래프 데이터
+x = age_columns
+y = [selected_row[col] for col in age_columns]
 
-for col in age_columns:
-    value = str(selected_row[col]).replace(",", "")
-    population_values.append(int(value))
-
-# x축 이름
-x_labels = [col.replace("세", "") for col in age_columns]
-
-# ---------------------------
-# 그래프 생성
-# ---------------------------
+# -----------------------------
+# 꺾은선 그래프
+# -----------------------------
 fig = go.Figure()
 
 fig.add_trace(
     go.Scatter(
-        x=x_labels,
-        y=population_values,
+        x=x,
+        y=y,
         mode="lines+markers",
-        line=dict(
-            color="white",
-            width=3
-        ),
-        marker=dict(
-            color="white",
-            size=6
-        )
+        line=dict(color="white", width=3),
+        marker=dict(color="white", size=7),
+        name=selected_district
     )
 )
 
-# ---------------------------
-# 그래프 스타일
-# ---------------------------
 fig.update_layout(
     title="서울시 행정구별 인구수",
-    plot_bgcolor="#2b2b2b",
     paper_bgcolor="#2b2b2b",
+    plot_bgcolor="#2b2b2b",
     font=dict(
-        family="Malgun Gothic",
-        color="white"
+        color="white",
+        family="Malgun Gothic"
     ),
     xaxis=dict(
         title="나이",
@@ -109,7 +93,58 @@ fig.update_layout(
     height=600
 )
 
-# ---------------------------
-# 출력
-# ---------------------------
 st.plotly_chart(fig, use_container_width=True)
+
+# =====================================================
+# 10살 간격 선택 후 인구 많은 행정구 TOP10 그래프
+# =====================================================
+
+st.divider()
+
+st.subheader("연령대별 인구 TOP10 행정구")
+
+selected_age = st.selectbox(
+    "10살 간격 연령대 선택",
+    age_columns
+)
+
+# TOP10 추출
+top10 = df[[district_col, selected_age]].sort_values(
+    by=selected_age,
+    ascending=False
+).head(10)
+
+# 그래프
+fig2 = go.Figure()
+
+for _, row in top10.iterrows():
+
+    fig2.add_trace(
+        go.Scatter(
+            x=[selected_age],
+            y=[row[selected_age]],
+            mode="lines+markers",
+            name=row[district_col]
+        )
+    )
+
+fig2.update_layout(
+    title=f"{selected_age} 인구 TOP10 행정구",
+    paper_bgcolor="#2b2b2b",
+    plot_bgcolor="#2b2b2b",
+    font=dict(
+        color="white",
+        family="Malgun Gothic"
+    ),
+    xaxis=dict(
+        title="나이대",
+        showgrid=False
+    ),
+    yaxis=dict(
+        title="인구수",
+        gridcolor="gray"
+    ),
+    height=700
+)
+
+st.plotly_chart(fig2, use_container_width=True)
