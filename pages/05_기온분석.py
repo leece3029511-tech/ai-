@@ -21,16 +21,24 @@ except:
         df = pd.read_csv("seoul.csv", encoding="utf-8")
 
 # -----------------------------
-# 컬럼 이름 공백 제거
+# 컬럼 공백 제거
 # -----------------------------
 df.columns = df.columns.str.strip()
 
 # -----------------------------
-# 날짜 변환
+# 날짜 변환 (오류 해결 핵심)
 # -----------------------------
-df['날짜'] = pd.to_datetime(df['날짜'])
+df['날짜'] = pd.to_datetime(
+    df['날짜'],
+    errors='coerce'
+)
 
+# 날짜 변환 실패한 행 제거
+df = df.dropna(subset=['날짜'])
+
+# -----------------------------
 # 연/월/일 컬럼 생성
+# -----------------------------
 df['연도'] = df['날짜'].dt.year
 df['월'] = df['날짜'].dt.month
 df['일'] = df['날짜'].dt.day
@@ -47,7 +55,9 @@ selected_month = st.sidebar.selectbox(
 
 selected_day = st.sidebar.selectbox(
     "일 선택",
-    sorted(df[df['월'] == selected_month]['일'].unique())
+    sorted(
+        df[df['월'] == selected_month]['일'].unique()
+    )
 )
 
 # -----------------------------
@@ -93,7 +103,7 @@ fig.add_trace(
 )
 
 # -----------------------------
-# 레이아웃 설정
+# 그래프 레이아웃
 # -----------------------------
 fig.update_layout(
     title=f"{selected_month}월 {selected_day}일 서울 기온 변화",
@@ -105,9 +115,12 @@ fig.update_layout(
 )
 
 # -----------------------------
-# 출력
+# 그래프 출력
 # -----------------------------
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(
+    fig,
+    use_container_width=True
+)
 
 # -----------------------------
 # 데이터 보기
