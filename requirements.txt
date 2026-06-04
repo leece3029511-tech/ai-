@@ -4,3 +4,4 @@ plotly
 folium
 plotly
 streamlit-folium
+requirements.txt
