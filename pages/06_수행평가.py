@@ -2,184 +2,181 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# -------------------------
+# -----------------------------
 # 페이지 설정
-# -------------------------
+# -----------------------------
 st.set_page_config(
-    page_title="스타벅스 메뉴 영양 분석",
+    page_title="Starbucks 메뉴 분석",
     page_icon="☕",
     layout="wide"
 )
 
-st.title("☕ 스타벅스 메뉴 영양성분 분석")
-st.markdown("스타벅스 메뉴 데이터를 활용한 수행평가 프로젝트")
-
-# -------------------------
+# -----------------------------
 # 데이터 불러오기
-# -------------------------
+# -----------------------------
 @st.cache_data
 def load_data():
-    return pd.read_excel("스타벅스매뉴(1).xlsx")
+    return pd.read_csv("starbucks.csv")
 
 df = load_data()
 
-# 컬럼명 정리
-df.columns = [col.strip() for col in df.columns]
+# -----------------------------
+# 제목
+# -----------------------------
+st.title("☕ Starbucks 메뉴 영양성분 분석 대시보드")
+st.markdown("수행평가용 데이터 분석 프로젝트")
 
-# -------------------------
-# 데이터 확인
-# -------------------------
-st.header("📋 데이터 미리보기")
+# -----------------------------
+# 데이터 미리보기
+# -----------------------------
+with st.expander("📄 원본 데이터 보기"):
+    st.dataframe(df)
 
-st.dataframe(df.head())
-
-# -------------------------
+# -----------------------------
 # 기본 통계
-# -------------------------
-st.header("📊 기초 통계")
+# -----------------------------
+st.header("📊 데이터 요약")
 
-numeric_cols = df.select_dtypes(include="number").columns
+col1, col2, col3, col4 = st.columns(4)
 
-col1, col2, col3 = st.columns(3)
+col1.metric("메뉴 수", len(df))
+col2.metric("평균 칼로리", f"{df['Calories'].mean():.1f} kcal")
+col3.metric("평균 지방", f"{df['Fat (g)'].mean():.1f} g")
+col4.metric("평균 단백질", f"{df['Protein (g)'].mean():.1f} g")
 
-with col1:
-    st.metric("메뉴 수", len(df))
+# -----------------------------
+# 상관관계 그래프
+# -----------------------------
+st.header("🔥 칼로리와 지방의 관계")
 
-with col2:
-    st.metric(
-        "평균 칼로리",
-        f"{df['Calories'].mean():.1f} kcal"
-    )
+fig_scatter = px.scatter(
+    df,
+    x="Fat (g)",
+    y="Calories",
+    hover_name="Menu",
+    size="Protein (g)",
+    color="Protein (g)",
+    title="지방이 많을수록 칼로리가 높은가?"
+)
 
-with col3:
-    st.metric(
-        "최고 칼로리",
-        f"{df['Calories'].max():.0f} kcal"
-    )
+st.plotly_chart(fig_scatter, use_container_width=True)
 
-st.dataframe(df[numeric_cols].describe())
+corr = df["Calories"].corr(df["Fat (g)"])
 
-# -------------------------
-# 칼로리 TOP10
-# -------------------------
-st.header("🔥 칼로리 TOP 10 메뉴")
+st.info(f"상관계수 : {corr:.2f}")
 
-top10 = df.nlargest(10, "Calories")
+# -----------------------------
+# TOP10 메뉴
+# -----------------------------
+st.header("🏆 칼로리 TOP10 메뉴")
 
-fig1 = px.bar(
+top10 = df.sort_values(
+    "Calories",
+    ascending=False
+).head(10)
+
+fig_top10 = px.bar(
     top10,
     x="Calories",
     y="Menu",
     orientation="h",
     color="Calories",
-    title="칼로리가 높은 메뉴 TOP 10"
+    text="Calories",
+    title="칼로리 TOP10"
 )
 
-fig1.update_layout(
+fig_top10.update_layout(
     yaxis={'categoryorder':'total ascending'}
 )
 
-st.plotly_chart(fig1, use_container_width=True)
+st.plotly_chart(fig_top10, use_container_width=True)
 
-# -------------------------
-# 히스토그램
-# -------------------------
-st.header("📈 칼로리 분포")
+# -----------------------------
+# 건강한 메뉴 추천
+# -----------------------------
+st.header("🥗 건강한 메뉴 추천")
 
-fig2 = px.histogram(
-    df,
-    x="Calories",
-    nbins=20,
-    title="칼로리 분포 히스토그램"
+healthy = df.copy()
+
+healthy["건강점수"] = (
+    healthy["Protein (g)"] * 2
+    - healthy["Calories"] * 0.02
+    - healthy["Fat (g)"] * 0.5
 )
 
-st.plotly_chart(fig2, use_container_width=True)
-
-# -------------------------
-# 산점도
-# -------------------------
-st.header("🔍 지방과 칼로리의 관계")
-
-fig3 = px.scatter(
-    df,
-    x="Fat",
-    y="Calories",
-    hover_name="Menu",
-    size="Protein",
-    color="Protein",
-    title="지방(Fat)과 칼로리 관계"
+healthy = healthy.sort_values(
+    "건강점수",
+    ascending=False
 )
 
-st.plotly_chart(fig3, use_container_width=True)
+recommend = healthy.head(10)
 
-# -------------------------
+st.dataframe(
+    recommend[
+        [
+            "Menu",
+            "Calories",
+            "Fat (g)",
+            "Protein (g)",
+            "건강점수"
+        ]
+    ],
+    use_container_width=True
+)
+
+# -----------------------------
 # 메뉴 검색
-# -------------------------
-st.header("🔎 메뉴 검색")
+# -----------------------------
+st.header("🔍 메뉴 검색")
 
-keyword = st.text_input("메뉴 이름 입력")
-
-if keyword:
-    result = df[
-        df["Menu"].str.contains(
-            keyword,
-            case=False,
-            na=False
-        )
-    ]
-
-    st.write(f"검색 결과 : {len(result)}개")
-
-    st.dataframe(result)
-
-# -------------------------
-# 영양성분 비교
-# -------------------------
-st.header("⚖️ 메뉴 영양성분 비교")
-
-menu_list = df["Menu"].tolist()
-
-selected = st.selectbox(
+menu = st.selectbox(
     "메뉴 선택",
-    menu_list
+    df["Menu"].sort_values()
 )
 
-selected_row = df[df["Menu"] == selected].iloc[0]
+selected = df[df["Menu"] == menu]
 
-compare_df = pd.DataFrame({
-    "영양성분": ["칼로리", "지방", "탄수화물", "식이섬유", "단백질"],
-    "값": [
-        selected_row["Calories"],
-        selected_row["Fat"],
-        selected_row["Carb."],
-        selected_row["Fiber"],
-        selected_row["Protein"]
-    ]
-})
+if not selected.empty:
 
-fig4 = px.bar(
-    compare_df,
-    x="영양성분",
-    y="값",
-    title=f"{selected} 영양성분"
+    row = selected.iloc[0]
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric("칼로리", row["Calories"])
+    col2.metric("지방", row["Fat (g)"])
+    col3.metric("탄수화물", row["Carb. (g)"])
+    col4.metric("단백질", row["Protein (g)"])
+
+# -----------------------------
+# 건강점수 TOP10 그래프
+# -----------------------------
+st.header("💪 건강점수 TOP10")
+
+fig_health = px.bar(
+    recommend,
+    x="건강점수",
+    y="Menu",
+    orientation="h",
+    color="건강점수",
+    text="건강점수"
 )
 
-st.plotly_chart(fig4, use_container_width=True)
+fig_health.update_layout(
+    yaxis={'categoryorder':'total ascending'}
+)
 
-# -------------------------
+st.plotly_chart(fig_health, use_container_width=True)
+
+# -----------------------------
 # 결론
-# -------------------------
-st.header("📝 분석 결과")
+# -----------------------------
+st.header("📌 분석 결론")
 
 st.success(
 """
-스타벅스 메뉴의 평균 칼로리는 약 357kcal이며,
-대부분의 메뉴는 300~450kcal 구간에 분포한다.
-
-샌드위치와 프로틴볼 메뉴는 단백질 함량이 높지만
-칼로리도 높은 편이다.
-
-과일 및 사이드 메뉴는 칼로리가 낮아
-건강식 선택에 적합하다.
+1. 지방 함량이 높을수록 칼로리가 증가하는 경향이 있다.
+2. 단백질이 높은 메뉴는 포만감이 높아 건강식으로 적합하다.
+3. Protein Bowl 계열 메뉴가 건강점수가 가장 높게 나타난다.
+4. 일부 샌드위치 메뉴는 단백질 대비 칼로리가 높다.
 """
 )
